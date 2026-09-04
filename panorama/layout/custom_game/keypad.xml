@@ -1,0 +1,36 @@
+<root>
+    <styles>
+        <include src="file://{resources}/styles/custom_game/keypad.css" />
+    </styles>
+
+    <Panel class="Root">
+        <Panel id="keypad" class="Dismissed">
+            <Panel id="screen">
+                <Label id="preview_text" text="{s:digits}" />
+            </Panel>
+
+            <Panel class="KeyGrid">
+                <Panel class="KeyRow">
+                    <Button id="keypad_digit_1" class="Key GapRight"><Label text="1" /></Button>
+                    <Button id="keypad_digit_2" class="Key GapRight"><Label text="2" /></Button>
+                    <Button id="keypad_digit_3" class="Key"><Label text="3" /></Button>
+                </Panel>
+                <Panel class="KeyRow">
+                    <Button id="keypad_digit_4" class="Key GapRight"><Label text="4" /></Button>
+                    <Button id="keypad_digit_5" class="Key GapRight"><Label text="5" /></Button>
+                    <Button id="keypad_digit_6" class="Key"><Label text="6" /></Button>
+                </Panel>
+                <Panel class="KeyRow">
+                    <Button id="keypad_digit_7" class="Key GapRight"><Label text="7" /></Button>
+                    <Button id="keypad_digit_8" class="Key GapRight"><Label text="8" /></Button>
+                    <Button id="keypad_digit_9" class="Key"><Label text="9" /></Button>
+                </Panel>
+                <Panel class="KeyRow LastRow">
+                    <Button id="clear_keypad_button" class="Key Utility GapRight"><Label text="X" /></Button>
+                    <Button id="keypad_digit_0" class="Key GapRight"><Label text="0" /></Button>
+                    <Button id="close_keypad_button" class="Key Utility"><Label text="ESC" /></Button>
+                </Panel>
+            </Panel>
+        </Panel>
+    </Panel>
+</root>
