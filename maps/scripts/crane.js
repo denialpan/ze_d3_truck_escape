@@ -1,12 +1,13 @@
 import { Entity, Instance } from "cs_script/point_script";
 
 let craneLayout = null;
-const CAMERA_TRANSITION_TIME = 0.5;
+const CAMERA_TRANSITION_TIME = 1.5;
 const CRANE_VIEW = {
     position: { x: 717, y: 732, z: 1017 },
     angles: { pitch: 38, yaw: -61, roll: 0 }
 };
 const craneCameras = new Map();
+const activeCraneUsers = new Set();
 
 function GetCraneLayout() {
     if (!(craneLayout instanceof Entity) || !craneLayout.IsValid()) {
@@ -172,6 +173,8 @@ function ShowCraneControls(player) {
 
     layout.SetHasClassForPlayer(playerSlot, "crane_panel", "Dismissed", false);
     layout.SetInputCaptureEnabled(playerSlot, true);
+    activeCraneUsers.add(playerSlot);
+    Instance.EntFireAtName({ name: "crane_head_push", input: "Enable" });
     StartCraneCamera(player);
 }
 
@@ -184,6 +187,12 @@ function HideCraneControls(playerSlot) {
     layout.SetHasClassForPlayer(playerSlot, "crane_panel", "Dismissed", true);
     layout.SetInputCaptureEnabled(playerSlot, false);
     ExitCraneCamera(playerSlot);
+    activeCraneUsers.delete(playerSlot);
+
+    if (activeCraneUsers.size === 0) {
+        StopAllCraneMotion();
+        Instance.EntFireAtName({ name: "crane_head_push", input: "Disable" });
+    }
 }
 
 function SetCraneHeadSpeed(speed) {
@@ -265,4 +274,10 @@ Instance.SetThink(UpdateCraneCameras);
 
 Instance.OnPlayerDisconnect((event) => {
     craneCameras.delete(event.playerSlot);
+    activeCraneUsers.delete(event.playerSlot);
+
+    if (activeCraneUsers.size === 0) {
+        StopAllCraneMotion();
+        Instance.EntFireAtName({ name: "crane_head_push", input: "Disable" });
+    }
 });
