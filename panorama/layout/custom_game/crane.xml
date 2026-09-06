@@ -1,0 +1,37 @@
+<root>
+    <styles>
+        <include src="file://{resources}/styles/custom_game/crane.css" />
+    </styles>
+
+    <Panel class="Root">
+        <Panel id="crane_panel" class="Dismissed">
+            <Panel class="ButtonRow">
+                <Button id="crane_cancel" class="CloseButton IconButton">
+                    <Image class="ButtonIcon MoveIcon" src="file://{images}/cancel.png" />
+                </Button>
+                <Panel class="ButtonDivider" />
+                <Button id="crane_rotate_ccw" class="ControlButton CircleButton IconButton">
+                    <Image class="ButtonIcon MoveIcon RotateLeft" src="file://{images}/arrow.png" />
+                </Button>
+                <Button id="crane_rotate_cw" class="ControlButton CircleButton IconButton">
+                    <Image class="ButtonIcon MoveIcon RotateRight" src="file://{images}/arrow.png" />
+                </Button>
+                <Panel class="ButtonDivider" />
+                <Button id="crane_trolley_forward" class="ControlButton SquareButton IconButton">
+                    <Image class="ButtonIcon MoveIcon" src="file://{images}/arrow.png" />
+                </Button>
+                <Button id="crane_trolley_backward" class="ControlButton SquareButton IconButton">
+                    <Image class="ButtonIcon MoveIcon RotateBack" src="file://{images}/arrow.png" />
+                </Button>
+                <Button id="crane_pulley_up" class="ControlButton CircleButton IconButton YellowButton">
+                    <Image class="ButtonIcon MoveIcon InvertIcon" src="file://{images}/arrow.png" />
+                </Button>
+                <Button id="crane_pulley_down" class="ControlButton CircleButton IconButton YellowButton">
+                    <Image class="ButtonIcon MoveIcon InvertIcon RotateBack" src="file://{images}/arrow.png" />
+                </Button>
+                <Panel class="ButtonDivider" />
+                <Button id="crane_stop" class="StopButton"><Label text="STOP" /></Button>
+            </Panel>
+        </Panel>
+    </Panel>
+</root>
