@@ -1,10 +1,10 @@
 import { Entity, Instance } from "cs_script/point_script";
 
 let craneLayout = null;
-const CAMERA_TRANSITION_TIME = 1.5;
+const CAMERA_TRANSITION_TIME = 0.75;
 const CRANE_VIEW = {
-    position: { x: 717, y: 732, z: 1017 },
-    angles: { pitch: 38, yaw: -61, roll: 0 }
+    position: { x: 478, y: 1237, z: 1258 },
+    angles: { pitch: 36, yaw: -60, roll: 0 }
 };
 const craneCameras = new Map();
 const activeCraneUsers = new Set();
