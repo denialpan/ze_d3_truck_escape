@@ -181,6 +181,94 @@
         ]
     }
 
-
+	d3.troll = 
+    {
+        type = "csgo_mega"
+        volume = 4
+        pitch = 1.000000
+        mixgroup = "Ambient"
+        vsnd_files_track_01 = "sounds/troll.vsnd"
+        distance_volume_mapping_curve = 
+        [
+            
+            [
+                0.000000,
+                1.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+            
+            [
+                4096.000000,
+                0.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+        ]
+    }
+	
+	d3.irish_spring_green = 
+    {
+        type = "csgo_mega"
+        volume = 4
+        pitch = 1.000000
+        mixgroup = "Ambient"
+        vsnd_files_track_01 = "sounds/irish_spring_green.vsnd"
+        distance_volume_mapping_curve = 
+        [
+            
+            [
+                0.000000,
+                1.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+            
+            [
+                4096.000000,
+                0.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+        ]
+    }
+	
+	d3.flight_dolphin = 
+    {
+        type = "csgo_mega"
+        volume = 4
+        pitch = 1.000000
+        mixgroup = "Ambient"
+        vsnd_files_track_01 = "sounds/flight_dolphin.vsnd"
+        distance_volume_mapping_curve = 
+        [
+            
+            [
+                0.000000,
+                1.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+            
+            [
+                4096.000000,
+                0.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+        ]
+    }
 
 }
