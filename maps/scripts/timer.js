@@ -3,7 +3,7 @@ import { Instance } from "cs_script/point_script";
 const TEXT_UPDATE_INTERVAL = 1 / 100;
 
 const TIMER_CONFIGS = {
-    text_intro_timer: {
+    intro_timer: {
         duration: 10,
         textEntity: "text_intro_timer",
         finishTarget: "relay_start_map",
