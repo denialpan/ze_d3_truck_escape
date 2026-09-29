@@ -271,13 +271,13 @@
         ]
     }
 	
-	d3.godlike= 
+	d3.kz_perfect = 
     {
         type = "csgo_mega"
         volume = 4
         pitch = 1.000000
         mixgroup = "Ambient"
-        vsnd_files_track_01 = "sounds/godlike.vsnd"
+        vsnd_files_track_01 = "sounds/kz_perfect.vsnd"
         distance_volume_mapping_curve = 
         [
             
@@ -300,5 +300,186 @@
             ],
         ]
     }
+	
+	d3.kz_impressive = 
+    {
+        type = "csgo_mega"
+        volume = 4
+        pitch = 1.000000
+        mixgroup = "Ambient"
+        vsnd_files_track_01 = "sounds/kz_impressive.vsnd"
+        distance_volume_mapping_curve = 
+        [
+            
+            [
+                0.000000,
+                1.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+            
+            [
+                4096.000000,
+                0.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+        ]
+    }
+	
+	d3.kz_rampage = 
+    {
+        type = "csgo_mega"
+        volume = 4
+        pitch = 1.000000
+        mixgroup = "Ambient"
+        vsnd_files_track_01 = "sounds/kz_rampage.vsnd"
+        distance_volume_mapping_curve = 
+        [
+            
+            [
+                0.000000,
+                1.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+            
+            [
+                4096.000000,
+                0.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+        ]
+    }
+	
+	d3.kz_dominating = 
+    {
+        type = "csgo_mega"
+        volume = 4
+        pitch = 1.000000
+        mixgroup = "Ambient"
+        vsnd_files_track_01 = "sounds/kz_dominating.vsnd"
+        distance_volume_mapping_curve = 
+        [
+            
+            [
+                0.000000,
+                1.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+            
+            [
+                4096.000000,
+                0.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+        ]
+    }
+	
+	d3.kz_unstoppable = 
+    {
+        type = "csgo_mega"
+        volume = 4
+        pitch = 1.000000
+        mixgroup = "Ambient"
+        vsnd_files_track_01 = "sounds/kz_unstoppable.vsnd"
+        distance_volume_mapping_curve = 
+        [
+            
+            [
+                0.000000,
+                1.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+            
+            [
+                4096.000000,
+                0.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+        ]
+    }
+	
+	d3.kz_godlike = 
+    {
+        type = "csgo_mega"
+        volume = 4
+        pitch = 1.000000
+        mixgroup = "Ambient"
+        vsnd_files_track_01 = "sounds/kz_godlike.vsnd"
+        distance_volume_mapping_curve = 
+        [
+            
+            [
+                0.000000,
+                1.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+            
+            [
+                4096.000000,
+                0.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+        ]
+    }
+	
+	d3.kz_holy = 
+    {
+        type = "csgo_mega"
+        volume = 4
+        pitch = 1.000000
+        mixgroup = "Ambient"
+        vsnd_files_track_01 = "sounds/kz_holy.vsnd"
+        distance_volume_mapping_curve = 
+        [
+            
+            [
+                0.000000,
+                1.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+            
+            [
+                4096.000000,
+                0.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+        ]
+    }
+	
 
 }
