@@ -8,6 +8,7 @@ const CHECKPOINT_CONFIGS = {
         failureRelay: "relay_secret_kz_failure",
         failureResetInput: "secret_kz_failure_reset",
         showTimer: true,
+        timerLimit: 30,
         conflicts: ["normal_kz"]
     },
 	
@@ -18,6 +19,7 @@ const CHECKPOINT_CONFIGS = {
         failureRelay: "relay_normal_kz_failure",
         failureResetInput: "normal_kz_failure_reset",
         showTimer: false,
+        timerLimit: 0,
 		conflicts: []
     }
 };
@@ -113,19 +115,21 @@ function GetRunKey(systemId, playerSlot) {
     return `${systemId}:${playerSlot}`;
 }
 
-function StartTimer(runKey, playerSlot) {
+function StartTimer(runKey, systemId, player) {
     const now = Instance.GetGameTime();
     timerByRun.set(runKey, {
-        playerSlot,
+        systemId,
+        player,
+        playerSlot: player.GetPlayerSlot(),
         startTime: now,
         elapsed: 0,
         running: true,
         nextUpdate: 0,
         hideAt: 0
     });
-    SetTimerState(playerSlot, undefined);
-    SetTimerText(playerSlot, 0);
-    ShowTimer(playerSlot);
+    SetTimerState(player.GetPlayerSlot(), undefined);
+    SetTimerText(player.GetPlayerSlot(), 0);
+    ShowTimer(player.GetPlayerSlot());
     Instance.SetNextThink(now);
 }
 
@@ -272,7 +276,7 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
     if (checkpointNumber === 1 && currentCheckpoint > 0) {
         progressByRun.set(runKey, 1);
         if (IsTimerEnabled(config)) {
-            StartTimer(runKey, playerSlot);
+            StartTimer(runKey, systemId, player);
         }
         Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} restarted ${systemId} at checkpoint_1`);
         return;
@@ -292,7 +296,7 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
     Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} reached ${systemId} checkpoint_${checkpointNumber}`);
 
     if (checkpointNumber === 1 && IsTimerEnabled(config)) {
-        StartTimer(runKey, playerSlot);
+        StartTimer(runKey, systemId, player);
     }
 
     if (checkpointNumber === config.finalCheckpoint) {
@@ -314,6 +318,12 @@ function TimerThink() {
         if (timer.running) {
             needsNextThink = true;
             timer.elapsed = Math.max(0, now - timer.startTime);
+
+            const config = CHECKPOINT_CONFIGS[timer.systemId];
+            if (config && config.timerLimit > 0 && timer.elapsed >= config.timerLimit) {
+                FailCheckpointSystem(timer.systemId, config, timer.player, "timer limit");
+                continue;
+            }
 
             if (now >= timer.nextUpdate) {
                 SetTimerText(timer.playerSlot, timer.elapsed);
