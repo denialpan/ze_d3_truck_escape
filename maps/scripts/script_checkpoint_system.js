@@ -228,11 +228,14 @@ function FailureReset(systemId, activator) {
 
     const playerSlot = player.GetPlayerSlot();
     const runKey = GetRunKey(systemId, playerSlot);
+    const currentCheckpoint = progressByRun.get(runKey) || 0;
 
-    ResetPlayerProgress(runKey);
+    if (currentCheckpoint === 0) {
+        Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored ${systemId} failure reset; not started`);
+        return;
+    }
 
-    Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} reset ${systemId} from failure reset input`);
-    FireRelay(config.failureRelay, player);
+    FailCheckpointSystem(systemId, config, player, "failure reset input");
 }
 
 function TouchCheckpoint(systemId, checkpointNumber, activator) {
