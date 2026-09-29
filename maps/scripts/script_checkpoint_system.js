@@ -172,7 +172,7 @@ function HoldTimer(runKey, playerSlot, stateClass, holdTime) {
 }
 
 function ResetPlayerProgress(runKey) {
-    progressByRun.set(runKey, 0);
+    progressByRun.delete(runKey);
 }
 
 function GetPlayerProgress(systemId, playerSlot) {
@@ -220,6 +220,11 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
     const expectedCheckpoint = currentCheckpoint + 1;
 
     if (currentCheckpoint === 0) {
+        if (checkpointNumber !== 1) {
+            Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored ${systemId} checkpoint_${checkpointNumber}; not started`);
+            return;
+        }
+
         const activeConflict = GetActiveConflict(systemId, config, playerSlot);
         if (activeConflict) {
             Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored ${systemId}; active conflict ${activeConflict}`);
