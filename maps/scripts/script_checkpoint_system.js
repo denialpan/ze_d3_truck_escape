@@ -230,9 +230,6 @@ function FailureReset(systemId, activator) {
     const runKey = GetRunKey(systemId, playerSlot);
 
     ResetPlayerProgress(runKey);
-    if (IsTimerEnabled(config)) {
-        ResetTimer(runKey, playerSlot);
-    }
 
     Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} reset ${systemId} from failure reset input`);
     FireRelay(config.failureRelay, player);
