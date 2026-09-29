@@ -21,7 +21,7 @@ const CHECKPOINT_CONFIGS = {
         failureResetInput: "normal_kz_failure_reset",
         showTimer: false,
         timerLimit: 0,
-        consecutiveSuccesses: 7,
+        consecutiveSuccesses: 21,
 		conflicts: []
     }
 };
