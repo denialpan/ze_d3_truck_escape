@@ -4,22 +4,24 @@ const CHECKPOINT_CONFIGS = {
     secret_kz: {
         inputPrefix: "secret_kz_checkpoint_",
         finalCheckpoint: 8,
-        successRelay: "relay_secret_kz_success",
+        successRelayPrefix: "relay_secret_kz_success_",
         failureRelay: "relay_secret_kz_failure",
         failureResetInput: "secret_kz_failure_reset",
         showTimer: true,
         timerLimit: 30,
+        consecutiveSuccesses: 1,
         conflicts: ["normal_kz"]
     },
 	
 	normal_kz: {
         inputPrefix: "normal_kz_checkpoint_",
         finalCheckpoint: 2,
-        successRelay: "relay_normal_kz_success",
+        successRelayPrefix: "relay_normal_kz_success_",
         failureRelay: "relay_normal_kz_failure",
         failureResetInput: "normal_kz_failure_reset",
         showTimer: false,
         timerLimit: 0,
+        consecutiveSuccesses: 7,
 		conflicts: []
     }
 };
@@ -32,6 +34,7 @@ const SUCCESS_HOLD_TIME = 10;
 
 const progressByRun = new Map();
 const timerByRun = new Map();
+const successCountByRun = new Map();
 let checkpointHud = null;
 
 function GetPlayerController(entity) {
@@ -55,6 +58,10 @@ function GetPlayerController(entity) {
 }
 
 function FireRelay(name, player) {
+    if (!name) {
+        return;
+    }
+
     Instance.EntFireAtName({
         name,
         input: "Trigger",
@@ -181,6 +188,36 @@ function ResetPlayerProgress(runKey) {
     progressByRun.delete(runKey);
 }
 
+function ResetSuccessCount(runKey) {
+    successCountByRun.delete(runKey);
+}
+
+function IsConsecutiveSuccessInProgress(runKey) {
+    return (successCountByRun.get(runKey) || 0) > 0;
+}
+
+function AdvanceSuccessCount(runKey, config) {
+    const requiredSuccesses = Math.max(1, config.consecutiveSuccesses || 1);
+    const nextSuccessCount = (successCountByRun.get(runKey) || 0) + 1;
+
+    if (nextSuccessCount >= requiredSuccesses) {
+        successCountByRun.delete(runKey);
+    } else {
+        successCountByRun.set(runKey, nextSuccessCount);
+    }
+
+    return nextSuccessCount;
+}
+
+function FireSuccessRelay(config, player, successCount) {
+    if (!config.successRelayPrefix) {
+        Instance.Msg("script_checkpoint_system.js: missing successRelayPrefix");
+        return;
+    }
+
+    FireRelay(`${config.successRelayPrefix}${successCount}`, player);
+}
+
 function GetPlayerProgress(systemId, playerSlot) {
     return progressByRun.get(GetRunKey(systemId, playerSlot)) || 0;
 }
@@ -190,6 +227,7 @@ function FailCheckpointSystem(systemId, config, player, reason) {
     const runKey = GetRunKey(systemId, playerSlot);
 
     ResetPlayerProgress(runKey);
+    ResetSuccessCount(runKey);
     if (IsTimerEnabled(config)) {
         StopTimer(runKey);
         HoldTimer(runKey, playerSlot, "TimerFailure", FAILURE_HOLD_TIME);
@@ -235,6 +273,11 @@ function FailureReset(systemId, activator) {
     const currentCheckpoint = progressByRun.get(runKey) || 0;
 
     if (currentCheckpoint === 0) {
+        if (IsConsecutiveSuccessInProgress(runKey)) {
+            Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored ${systemId} failure reset; waiting for checkpoint_1`);
+            return;
+        }
+
         Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored ${systemId} failure reset; not started`);
         return;
     }
@@ -262,6 +305,11 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
 
     if (currentCheckpoint === 0) {
         if (checkpointNumber !== 1) {
+            if (IsConsecutiveSuccessInProgress(runKey)) {
+                Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored ${systemId} checkpoint_${checkpointNumber}; waiting for checkpoint_1`);
+                return;
+            }
+
             Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored ${systemId} checkpoint_${checkpointNumber}; not started`);
             return;
         }
@@ -305,8 +353,9 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
             HoldTimer(runKey, playerSlot, "TimerSuccess", SUCCESS_HOLD_TIME);
         }
         ResetPlayerProgress(runKey);
-        Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} completed ${systemId} in ${FormatTime(elapsed)}`);
-        FireRelay(config.successRelay, player);
+        const successCount = AdvanceSuccessCount(runKey, config);
+        Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} completed ${systemId} success_${successCount} in ${FormatTime(elapsed)}`);
+        FireSuccessRelay(config, player, successCount);
     }
 }
 
@@ -374,6 +423,12 @@ Instance.OnPlayerDisconnect((event) => {
     for (const runKey of timerByRun.keys()) {
         if (runKey.endsWith(suffix)) {
             timerByRun.delete(runKey);
+        }
+    }
+
+    for (const runKey of successCountByRun.keys()) {
+        if (runKey.endsWith(suffix)) {
+            successCountByRun.delete(runKey);
         }
     }
 });
