@@ -6,6 +6,7 @@ const CHECKPOINT_CONFIGS = {
         finalCheckpoint: 8,
         successRelay: "relay_secret_kz_success",
         failureRelay: "relay_secret_kz_failure",
+        failureResetInput: "secret_kz_failure_reset",
         showTimer: true,
         conflicts: ["normal_kz"]
     },
@@ -15,6 +16,7 @@ const CHECKPOINT_CONFIGS = {
         finalCheckpoint: 2,
         successRelay: "relay_normal_kz_success",
         failureRelay: "relay_normal_kz_failure",
+        failureResetInput: "normal_kz_failure_reset",
         showTimer: false,
 		conflicts: []
     }
@@ -179,26 +181,61 @@ function GetPlayerProgress(systemId, playerSlot) {
     return progressByRun.get(GetRunKey(systemId, playerSlot)) || 0;
 }
 
-function GetConflictingSystemIds(systemId, config) {
-    const conflicts = new Set(config.conflicts || []);
+function FailCheckpointSystem(systemId, config, player, reason) {
+    const playerSlot = player.GetPlayerSlot();
+    const runKey = GetRunKey(systemId, playerSlot);
 
-    for (const [otherSystemId, otherConfig] of Object.entries(CHECKPOINT_CONFIGS)) {
-        if (otherSystemId !== systemId && (otherConfig.conflicts || []).includes(systemId)) {
-            conflicts.add(otherSystemId);
-        }
+    ResetPlayerProgress(runKey);
+    if (IsTimerEnabled(config)) {
+        StopTimer(runKey);
+        HoldTimer(runKey, playerSlot, "TimerFailure", FAILURE_HOLD_TIME);
     }
 
-    return Array.from(conflicts);
+    Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} failed ${systemId}${reason ? `; ${reason}` : ""}`);
+    FireRelay(config.failureRelay, player);
 }
 
-function GetActiveConflict(systemId, config, playerSlot) {
-    for (const conflictId of GetConflictingSystemIds(systemId, config)) {
-        if (GetPlayerProgress(conflictId, playerSlot) > 0) {
-            return conflictId;
+function GetBlockingActiveConflict(systemId, playerSlot) {
+    for (const [activeSystemId, activeConfig] of Object.entries(CHECKPOINT_CONFIGS)) {
+        if (activeSystemId === systemId) {
+            continue;
+        }
+
+        if (!(activeConfig.conflicts || []).includes(systemId)) {
+            continue;
+        }
+
+        if (GetPlayerProgress(activeSystemId, playerSlot) > 0) {
+            return activeSystemId;
         }
     }
 
     return undefined;
+}
+
+function FailureReset(systemId, activator) {
+    const config = CHECKPOINT_CONFIGS[systemId];
+    if (!config) {
+        Instance.Msg(`script_checkpoint_system.js: missing checkpoint config "${systemId}"`);
+        return;
+    }
+
+    const player = GetPlayerController(activator);
+    if (!player) {
+        Instance.Msg(`script_checkpoint_system.js: ${systemId} failure reset needs a player activator`);
+        return;
+    }
+
+    const playerSlot = player.GetPlayerSlot();
+    const runKey = GetRunKey(systemId, playerSlot);
+
+    ResetPlayerProgress(runKey);
+    if (IsTimerEnabled(config)) {
+        ResetTimer(runKey, playerSlot);
+    }
+
+    Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} reset ${systemId} from failure reset input`);
+    FireRelay(config.failureRelay, player);
 }
 
 function TouchCheckpoint(systemId, checkpointNumber, activator) {
@@ -225,11 +262,20 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
             return;
         }
 
-        const activeConflict = GetActiveConflict(systemId, config, playerSlot);
-        if (activeConflict) {
-            Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored ${systemId}; active conflict ${activeConflict}`);
+        const blockingConflict = GetBlockingActiveConflict(systemId, playerSlot);
+        if (blockingConflict) {
+            Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored ${systemId}; active ${blockingConflict} has priority`);
             return;
         }
+    }
+
+    if (checkpointNumber === 1 && currentCheckpoint > 0) {
+        progressByRun.set(runKey, 1);
+        if (IsTimerEnabled(config)) {
+            StartTimer(runKey, playerSlot);
+        }
+        Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} restarted ${systemId} at checkpoint_1`);
+        return;
     }
 
     if (checkpointNumber <= currentCheckpoint) {
@@ -238,13 +284,7 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
     }
 
     if (checkpointNumber !== expectedCheckpoint) {
-        ResetPlayerProgress(runKey);
-        if (IsTimerEnabled(config)) {
-            StopTimer(runKey);
-            HoldTimer(runKey, playerSlot, "TimerFailure", FAILURE_HOLD_TIME);
-        }
-        Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} failed ${systemId} at checkpoint_${checkpointNumber}`);
-        FireRelay(config.failureRelay, player);
+        FailCheckpointSystem(systemId, config, player, `checkpoint_${checkpointNumber}`);
         return;
     }
 
@@ -302,6 +342,12 @@ for (const [systemId, config] of Object.entries(CHECKPOINT_CONFIGS)) {
     for (let checkpoint = 1; checkpoint <= config.finalCheckpoint; checkpoint += 1) {
         Instance.OnScriptInput(`${config.inputPrefix}${checkpoint}`, ({ activator }) => {
             TouchCheckpoint(systemId, checkpoint, activator);
+        });
+    }
+
+    if (config.failureResetInput) {
+        Instance.OnScriptInput(config.failureResetInput, ({ activator }) => {
+            FailureReset(systemId, activator);
         });
     }
 }
