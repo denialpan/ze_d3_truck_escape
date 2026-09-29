@@ -6,7 +6,8 @@ const CHECKPOINT_CONFIGS = {
         finalCheckpoint: 8,
         successRelay: "relay_secret_kz_success",
         failureRelay: "relay_secret_kz_failure",
-        showTimer: true
+        showTimer: true,
+        conflicts: ["normal_kz"]
     },
 	
 	normal_kz: {
@@ -14,7 +15,8 @@ const CHECKPOINT_CONFIGS = {
         finalCheckpoint: 2,
         successRelay: "relay_normal_kz_success",
         failureRelay: "relay_normal_kz_failure",
-        showTimer: false
+        showTimer: false,
+		conflicts: []
     }
 };
 
@@ -173,6 +175,32 @@ function ResetPlayerProgress(runKey) {
     progressByRun.set(runKey, 0);
 }
 
+function GetPlayerProgress(systemId, playerSlot) {
+    return progressByRun.get(GetRunKey(systemId, playerSlot)) || 0;
+}
+
+function GetConflictingSystemIds(systemId, config) {
+    const conflicts = new Set(config.conflicts || []);
+
+    for (const [otherSystemId, otherConfig] of Object.entries(CHECKPOINT_CONFIGS)) {
+        if (otherSystemId !== systemId && (otherConfig.conflicts || []).includes(systemId)) {
+            conflicts.add(otherSystemId);
+        }
+    }
+
+    return Array.from(conflicts);
+}
+
+function GetActiveConflict(systemId, config, playerSlot) {
+    for (const conflictId of GetConflictingSystemIds(systemId, config)) {
+        if (GetPlayerProgress(conflictId, playerSlot) > 0) {
+            return conflictId;
+        }
+    }
+
+    return undefined;
+}
+
 function TouchCheckpoint(systemId, checkpointNumber, activator) {
     const config = CHECKPOINT_CONFIGS[systemId];
     if (!config) {
@@ -190,6 +218,14 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
     const runKey = GetRunKey(systemId, playerSlot);
     const currentCheckpoint = progressByRun.get(runKey) || 0;
     const expectedCheckpoint = currentCheckpoint + 1;
+
+    if (currentCheckpoint === 0) {
+        const activeConflict = GetActiveConflict(systemId, config, playerSlot);
+        if (activeConflict) {
+            Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored ${systemId}; active conflict ${activeConflict}`);
+            return;
+        }
+    }
 
     if (checkpointNumber <= currentCheckpoint) {
         Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored previous ${systemId} checkpoint_${checkpointNumber}`);
