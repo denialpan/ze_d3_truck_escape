@@ -191,6 +191,11 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
     const currentCheckpoint = progressByRun.get(runKey) || 0;
     const expectedCheckpoint = currentCheckpoint + 1;
 
+    if (checkpointNumber <= currentCheckpoint) {
+        Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored previous ${systemId} checkpoint_${checkpointNumber}`);
+        return;
+    }
+
     if (checkpointNumber !== expectedCheckpoint) {
         ResetPlayerProgress(runKey);
         if (IsTimerEnabled(config)) {
