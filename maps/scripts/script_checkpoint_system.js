@@ -31,6 +31,8 @@ const HUD_PANEL_ID = "script_checkpoint_timer";
 const HUD_UPDATE_INTERVAL = 1 / 100;
 const FAILURE_HOLD_TIME = 2;
 const SUCCESS_HOLD_TIME = 10;
+const SERVER_COMMAND_NAME = "server";
+const CHAT_COLOR_PREFIX = "\x03";
 
 const progressByRun = new Map();
 const timerByRun = new Map();
@@ -66,6 +68,14 @@ function FireRelay(name, player) {
         name,
         input: "Trigger",
         activator: player
+    });
+}
+
+function Say(message) {
+    Instance.EntFireAtName({
+        name: SERVER_COMMAND_NAME,
+        input: "Command",
+        value: `say ${message}`
     });
 }
 
@@ -218,6 +228,27 @@ function FireSuccessRelay(config, player, successCount) {
     FireRelay(`${config.successRelayPrefix}${successCount}`, player);
 }
 
+function GetPlayerName(player) {
+    if (player && typeof player.GetPlayerName === "function") {
+        return player.GetPlayerName();
+    }
+
+    return `player ${player.GetPlayerSlot()}`;
+}
+
+function PrintSuccessChat(player, successCount) {
+    const playerName = GetPlayerName(player);
+
+    if (successCount === 1) {
+        Say(`${CHAT_COLOR_PREFIX}[KZ] ${playerName} jumped 265 units!`);
+        return;
+    }
+
+    if (successCount % 3 === 0) {
+        Say(`${CHAT_COLOR_PREFIX}[KZ] ${playerName} jumped 265 units ${successCount} times in a row!`);
+    }
+}
+
 function GetPlayerProgress(systemId, playerSlot) {
     return progressByRun.get(GetRunKey(systemId, playerSlot)) || 0;
 }
@@ -355,6 +386,7 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
         ResetPlayerProgress(runKey);
         const successCount = AdvanceSuccessCount(runKey, config);
         Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} completed ${systemId} success_${successCount} in ${FormatTime(elapsed)}`);
+        PrintSuccessChat(player, successCount);
         FireSuccessRelay(config, player, successCount);
     }
 }
