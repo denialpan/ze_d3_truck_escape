@@ -31,12 +31,18 @@ const HUD_PANEL_ID = "script_checkpoint_timer";
 const HUD_UPDATE_INTERVAL = 1 / 100;
 const FAILURE_HOLD_TIME = 2;
 const SUCCESS_HOLD_TIME = 10;
-const SERVER_COMMAND_NAME = "server";
 const CHAT_COLOR_PREFIX = "\x03";
+const JUMP_TRACK_WINDOW = 5;
+const JUMP_POSITION_POLL_INTERVAL = 0.01;
 
 const progressByRun = new Map();
 const timerByRun = new Map();
 const successCountByRun = new Map();
+const successDistanceByRun = new Map();
+const armedJumpByRun = new Map();
+const jumpStartByRun = new Map();
+const jumpDistanceByRun = new Map();
+const completionPendingByRun = new Set();
 let checkpointHud = null;
 
 function GetPlayerController(entity) {
@@ -72,11 +78,7 @@ function FireRelay(name, player) {
 }
 
 function Say(message) {
-    Instance.EntFireAtName({
-        name: SERVER_COMMAND_NAME,
-        input: "Command",
-        value: `say ${message}`
-    });
+    Instance.ServerCommand(`say ${message}`);
 }
 
 function GetCheckpointHud() {
@@ -196,27 +198,58 @@ function HoldTimer(runKey, playerSlot, stateClass, holdTime) {
 
 function ResetPlayerProgress(runKey) {
     progressByRun.delete(runKey);
+    completionPendingByRun.delete(runKey);
+}
+
+function ResetJumpTracking(runKey) {
+    armedJumpByRun.delete(runKey);
+    jumpStartByRun.delete(runKey);
+    jumpDistanceByRun.delete(runKey);
+}
+
+function ArmJumpTracking(runKey, systemId, player) {
+    const playerSlot = player.GetPlayerSlot();
+    armedJumpByRun.set(runKey, {
+        systemId,
+        player,
+        playerSlot,
+        expiresAt: Instance.GetGameTime() + JUMP_TRACK_WINDOW,
+        nextPositionPoll: 0,
+        lastPosition: undefined
+    });
+    jumpStartByRun.delete(runKey);
+    jumpDistanceByRun.delete(runKey);
+    Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} armed ${systemId} jump tracking`);
+    Instance.SetNextThink(Instance.GetGameTime());
 }
 
 function ResetSuccessCount(runKey) {
     successCountByRun.delete(runKey);
+    successDistanceByRun.delete(runKey);
 }
 
 function IsConsecutiveSuccessInProgress(runKey) {
     return (successCountByRun.get(runKey) || 0) > 0;
 }
 
-function AdvanceSuccessCount(runKey, config) {
+function AdvanceSuccessCount(runKey, config, jumpDistance) {
     const requiredSuccesses = Math.max(1, config.consecutiveSuccesses || 1);
     const nextSuccessCount = (successCountByRun.get(runKey) || 0) + 1;
+    const nextDistanceSum = (successDistanceByRun.get(runKey) || 0) + Math.max(0, jumpDistance || 0);
+    const averageDistance = nextDistanceSum / nextSuccessCount;
 
     if (nextSuccessCount >= requiredSuccesses) {
         successCountByRun.delete(runKey);
+        successDistanceByRun.delete(runKey);
     } else {
         successCountByRun.set(runKey, nextSuccessCount);
+        successDistanceByRun.set(runKey, nextDistanceSum);
     }
 
-    return nextSuccessCount;
+    return {
+        count: nextSuccessCount,
+        averageDistance
+    };
 }
 
 function FireSuccessRelay(config, player, successCount) {
@@ -228,6 +261,53 @@ function FireSuccessRelay(config, player, successCount) {
     FireRelay(`${config.successRelayPrefix}${successCount}`, player);
 }
 
+function GetPawnPosition(pawn) {
+    if (!pawn || typeof pawn.GetAbsOrigin !== "function") {
+        return undefined;
+    }
+
+    return pawn.GetAbsOrigin();
+}
+
+function GetPlayerPawn(player) {
+    if (!player || typeof player.GetPlayerPawn !== "function") {
+        return undefined;
+    }
+
+    const pawn = player.GetPlayerPawn();
+    if (!pawn || !pawn.IsValid()) {
+        return undefined;
+    }
+
+    return pawn;
+}
+
+function GetHorizontalDistance(start, end) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function GetJumpDistanceForCompletion(runKey, player) {
+    const trackedDistance = jumpDistanceByRun.get(runKey);
+    if (trackedDistance !== undefined) {
+        return trackedDistance;
+    }
+
+    const startPosition = jumpStartByRun.get(runKey);
+    const pawn = GetPlayerPawn(player);
+    const endPosition = GetPawnPosition(pawn);
+    if (!startPosition || !endPosition) {
+        return 0;
+    }
+
+    return GetHorizontalDistance(startPosition, endPosition);
+}
+
+function GetTrackedPosition(state, pawn) {
+    return state.lastPosition || GetPawnPosition(pawn);
+}
+
 function GetPlayerName(player) {
     if (player && typeof player.GetPlayerName === "function") {
         return player.GetPlayerName();
@@ -236,17 +316,17 @@ function GetPlayerName(player) {
     return `player ${player.GetPlayerSlot()}`;
 }
 
-function PrintSuccessChat(player, successCount) {
+function PrintSuccessChat(player, successCount, jumpDistance, averageDistance) {
     const playerName = GetPlayerName(player);
+    const units = Math.max(0, jumpDistance || 0).toFixed(3);
+    const averageUnits = Math.max(0, averageDistance || 0).toFixed(3);
 
     if (successCount === 1) {
-        Say(`${CHAT_COLOR_PREFIX}[KZ] ${playerName} jumped 265 units!`);
+        Say(`${CHAT_COLOR_PREFIX}[KZ] ${playerName} jumped ${units} units!`);
         return;
     }
 
-    if (successCount % 3 === 0) {
-        Say(`${CHAT_COLOR_PREFIX}[KZ] ${playerName} jumped 265 units ${successCount} times in a row!`);
-    }
+    Say(`${CHAT_COLOR_PREFIX}[KZ] ${playerName} jumped an average of ${averageUnits} units ${successCount} times in a row!`);
 }
 
 function GetPlayerProgress(systemId, playerSlot) {
@@ -259,6 +339,7 @@ function FailCheckpointSystem(systemId, config, player, reason) {
 
     ResetPlayerProgress(runKey);
     ResetSuccessCount(runKey);
+    ResetJumpTracking(runKey);
     if (IsTimerEnabled(config)) {
         StopTimer(runKey);
         HoldTimer(runKey, playerSlot, "TimerFailure", FAILURE_HOLD_TIME);
@@ -316,6 +397,54 @@ function FailureReset(systemId, activator) {
     FailCheckpointSystem(systemId, config, player, "failure reset input");
 }
 
+function EnterCheckpointVolume(systemId, checkpointNumber, playerSlot) {
+    const config = CHECKPOINT_CONFIGS[systemId];
+
+    if (config && checkpointNumber === config.finalCheckpoint - 1) {
+        Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} entered ${systemId} second-last volume`);
+    }
+}
+
+function ExitCheckpointVolume(systemId, checkpointNumber, activator) {
+    const player = GetPlayerController(activator);
+    if (!player) {
+        return;
+    }
+
+    Instance.Msg(`script_checkpoint_system.js: player ${player.GetPlayerSlot()} exited ${systemId} checkpoint_${checkpointNumber}`);
+}
+
+function CompleteCheckpointSystem(systemId, config, player) {
+    const playerSlot = player.GetPlayerSlot();
+    const runKey = GetRunKey(systemId, playerSlot);
+
+    if ((progressByRun.get(runKey) || 0) !== config.finalCheckpoint) {
+        completionPendingByRun.delete(runKey);
+        return;
+    }
+
+    const elapsed = IsTimerEnabled(config) ? StopTimer(runKey) : 0;
+    const jumpDistance = GetJumpDistanceForCompletion(runKey, player);
+    if (IsTimerEnabled(config)) {
+        HoldTimer(runKey, playerSlot, "TimerSuccess", SUCCESS_HOLD_TIME);
+    }
+    ResetPlayerProgress(runKey);
+    const success = AdvanceSuccessCount(runKey, config, jumpDistance);
+    Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} completed ${systemId} success_${success.count} in ${FormatTime(elapsed)}`);
+    PrintSuccessChat(player, success.count, jumpDistance, success.averageDistance);
+    FireSuccessRelay(config, player, success.count);
+    ResetJumpTracking(runKey);
+}
+
+function QueueCheckpointCompletion(systemId, config, player) {
+    const playerSlot = player.GetPlayerSlot();
+    const runKey = GetRunKey(systemId, playerSlot);
+
+    Instance.QueueAfterThinks(() => {
+        CompleteCheckpointSystem(systemId, config, player);
+    });
+}
+
 function TouchCheckpoint(systemId, checkpointNumber, activator) {
     const config = CHECKPOINT_CONFIGS[systemId];
     if (!config) {
@@ -323,9 +452,13 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
         return;
     }
 
+    Instance.Msg(`script_checkpoint_system.js: received ${systemId} checkpoint_${checkpointNumber}`);
+
     const player = GetPlayerController(activator);
     if (!player) {
-        Instance.Msg(`script_checkpoint_system.js: ${systemId} checkpoint_${checkpointNumber} needs a player activator`);
+        const activatorName = activator && typeof activator.GetEntityName === "function" ? activator.GetEntityName() : "none";
+        const activatorClass = activator && typeof activator.GetClassName === "function" ? activator.GetClassName() : "none";
+        Instance.Msg(`script_checkpoint_system.js: ${systemId} checkpoint_${checkpointNumber} needs a player activator; activator=${activatorName} class=${activatorClass}`);
         return;
     }
 
@@ -353,6 +486,7 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
     }
 
     if (checkpointNumber === 1 && currentCheckpoint > 0) {
+        EnterCheckpointVolume(systemId, checkpointNumber, playerSlot);
         progressByRun.set(runKey, 1);
         if (IsTimerEnabled(config)) {
             StartTimer(runKey, systemId, player);
@@ -371,6 +505,7 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
         return;
     }
 
+    EnterCheckpointVolume(systemId, checkpointNumber, playerSlot);
     progressByRun.set(runKey, checkpointNumber);
     Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} reached ${systemId} checkpoint_${checkpointNumber}`);
 
@@ -378,16 +513,82 @@ function TouchCheckpoint(systemId, checkpointNumber, activator) {
         StartTimer(runKey, systemId, player);
     }
 
+    if (checkpointNumber === config.finalCheckpoint - 1) {
+        ArmJumpTracking(runKey, systemId, player);
+    }
+
     if (checkpointNumber === config.finalCheckpoint) {
-        const elapsed = IsTimerEnabled(config) ? StopTimer(runKey) : 0;
-        if (IsTimerEnabled(config)) {
-            HoldTimer(runKey, playerSlot, "TimerSuccess", SUCCESS_HOLD_TIME);
+        if (completionPendingByRun.has(runKey)) {
+            Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} ignored duplicate ${systemId} completion`);
+            return;
         }
-        ResetPlayerProgress(runKey);
-        const successCount = AdvanceSuccessCount(runKey, config);
-        Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} completed ${systemId} success_${successCount} in ${FormatTime(elapsed)}`);
-        PrintSuccessChat(player, successCount);
-        FireSuccessRelay(config, player, successCount);
+
+        completionPendingByRun.add(runKey);
+        if (jumpStartByRun.has(runKey) && !jumpDistanceByRun.has(runKey)) {
+            Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} waiting for ${systemId} landing measurement`);
+            return;
+        }
+
+        QueueCheckpointCompletion(systemId, config, player);
+    }
+}
+
+function TrackPlayerJump(pawn) {
+    const player = GetPlayerController(pawn);
+    if (!player) {
+        return;
+    }
+
+    const playerSlot = player.GetPlayerSlot();
+    const now = Instance.GetGameTime();
+    for (const [runKey, state] of armedJumpByRun) {
+        if (state.playerSlot !== playerSlot || now > state.expiresAt) {
+            continue;
+        }
+
+        const position = GetTrackedPosition(state, pawn);
+        if (!position) {
+            continue;
+        }
+
+        jumpStartByRun.set(runKey, position);
+        jumpDistanceByRun.delete(runKey);
+        Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} started ${state.systemId} jump measurement`);
+    }
+}
+
+function TrackPlayerLand(pawn) {
+    const player = GetPlayerController(pawn);
+    if (!player) {
+        return;
+    }
+
+    const playerSlot = player.GetPlayerSlot();
+    const now = Instance.GetGameTime();
+    for (const [runKey, state] of armedJumpByRun) {
+        if (state.playerSlot !== playerSlot || now > state.expiresAt) {
+            continue;
+        }
+
+        const position = GetTrackedPosition(state, pawn);
+        if (!position) {
+            continue;
+        }
+
+        const startPosition = jumpStartByRun.get(runKey);
+        if (!startPosition) {
+            continue;
+        }
+
+        const distance = GetHorizontalDistance(startPosition, position);
+        jumpDistanceByRun.set(runKey, distance);
+        armedJumpByRun.delete(runKey);
+        Instance.Msg(`script_checkpoint_system.js: player ${playerSlot} landed ${state.systemId} jump ${distance.toFixed(3)} units`);
+
+        const config = CHECKPOINT_CONFIGS[state.systemId];
+        if (completionPendingByRun.has(runKey) && config && (progressByRun.get(runKey) || 0) === config.finalCheckpoint) {
+            QueueCheckpointCompletion(state.systemId, config, player);
+        }
     }
 }
 
@@ -424,6 +625,25 @@ function TimerThink() {
         }
     }
 
+    for (const [runKey, state] of armedJumpByRun) {
+        if (now >= state.expiresAt) {
+            armedJumpByRun.delete(runKey);
+            jumpStartByRun.delete(runKey);
+            jumpDistanceByRun.delete(runKey);
+            Instance.Msg(`script_checkpoint_system.js: player ${state.playerSlot} ${state.systemId} jump tracking expired`);
+        } else {
+            if (now >= state.nextPositionPoll) {
+                const pawn = GetPlayerPawn(state.player);
+                const position = GetPawnPosition(pawn);
+                if (position) {
+                    state.lastPosition = position;
+                }
+                state.nextPositionPoll = now + JUMP_POSITION_POLL_INTERVAL;
+            }
+            needsNextThink = true;
+        }
+    }
+
     if (needsNextThink) {
         Instance.SetNextThink(now);
     }
@@ -434,6 +654,10 @@ for (const [systemId, config] of Object.entries(CHECKPOINT_CONFIGS)) {
         Instance.OnScriptInput(`${config.inputPrefix}${checkpoint}`, ({ activator }) => {
             TouchCheckpoint(systemId, checkpoint, activator);
         });
+
+        Instance.OnScriptInput(`${config.inputPrefix}${checkpoint}_exit`, ({ activator }) => {
+            ExitCheckpointVolume(systemId, checkpoint, activator);
+        });
     }
 
     if (config.failureResetInput) {
@@ -442,6 +666,14 @@ for (const [systemId, config] of Object.entries(CHECKPOINT_CONFIGS)) {
         });
     }
 }
+
+Instance.OnPlayerJump((event) => {
+    TrackPlayerJump(event.player);
+});
+
+Instance.OnPlayerLand((event) => {
+    TrackPlayerLand(event.player);
+});
 
 Instance.OnPlayerDisconnect((event) => {
     const suffix = `:${event.playerSlot}`;
@@ -461,6 +693,36 @@ Instance.OnPlayerDisconnect((event) => {
     for (const runKey of successCountByRun.keys()) {
         if (runKey.endsWith(suffix)) {
             successCountByRun.delete(runKey);
+        }
+    }
+
+    for (const runKey of successDistanceByRun.keys()) {
+        if (runKey.endsWith(suffix)) {
+            successDistanceByRun.delete(runKey);
+        }
+    }
+
+    for (const runKey of armedJumpByRun.keys()) {
+        if (runKey.endsWith(suffix)) {
+            armedJumpByRun.delete(runKey);
+        }
+    }
+
+    for (const runKey of jumpStartByRun.keys()) {
+        if (runKey.endsWith(suffix)) {
+            jumpStartByRun.delete(runKey);
+        }
+    }
+
+    for (const runKey of jumpDistanceByRun.keys()) {
+        if (runKey.endsWith(suffix)) {
+            jumpDistanceByRun.delete(runKey);
+        }
+    }
+
+    for (const runKey of completionPendingByRun.values()) {
+        if (runKey.endsWith(suffix)) {
+            completionPendingByRun.delete(runKey);
         }
     }
 });
