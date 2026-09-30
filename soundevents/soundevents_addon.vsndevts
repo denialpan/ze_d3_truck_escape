@@ -481,5 +481,35 @@
         ]
     }
 	
+	d3.kz_success = 
+    {
+        type = "csgo_mega"
+        volume = 4
+        pitch = 1.000000
+        mixgroup = "Ambient"
+        vsnd_files_track_01 = "sounds/kz_success.vsnd"
+        distance_volume_mapping_curve = 
+        [
+            
+            [
+                0.000000,
+                1.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+            
+            [
+                4096.000000,
+                0.000000,
+                0.000000,
+                0.000000,
+                2.000000,
+                3.000000,
+            ],
+        ]
+    }
+	
 
 }
