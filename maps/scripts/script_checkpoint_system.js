@@ -21,7 +21,7 @@ const CHECKPOINT_CONFIGS = {
         failureResetInput: "normal_kz_failure_reset",
         showTimer: false,
         timerLimit: 0,
-        consecutiveSuccesses: 21,
+        consecutiveSuccesses: 50,
 		conflicts: []
     }
 };
@@ -34,6 +34,7 @@ const SUCCESS_HOLD_TIME = 10;
 const CHAT_COLOR_PREFIX = "\x03";
 const JUMP_TRACK_WINDOW = 5;
 const JUMP_POSITION_POLL_INTERVAL = 0.01;
+const AVERAGE_CHAT_SUCCESS_MARKS = new Set([5, 10, 15, 20, 30, 40, 50]);
 
 const progressByRun = new Map();
 const timerByRun = new Map();
@@ -323,6 +324,10 @@ function PrintSuccessChat(player, successCount, jumpDistance, averageDistance) {
 
     if (successCount === 1) {
         Say(`${CHAT_COLOR_PREFIX}[KZ] ${playerName} jumped ${units} units!`);
+        return;
+    }
+
+    if (!AVERAGE_CHAT_SUCCESS_MARKS.has(successCount)) {
         return;
     }
 
