@@ -8,6 +8,8 @@ const LASER_UPDATE_INTERVAL = 0.005;
 let sniperWeapons = [];
 let sniperHolders = new Map();
 let sniperLaser = undefined;
+let sniperLaserDefaultTransform = undefined;
+let sniperLaserAtDefault = true;
 let debugActiveWeapon = undefined;
 let debugActiveDescription = "";
 
@@ -29,7 +31,16 @@ function RefreshSniperLaser() {
 
     if (!sniperLaser || !sniperLaser.IsValid()) {
         Instance.Msg(`items.js: could not find prop_dynamic named ${LASER_ENTITY_NAME}.`);
+        sniperLaserDefaultTransform = undefined;
+        sniperLaserAtDefault = true;
+        return;
     }
+
+    sniperLaserDefaultTransform = {
+        position: sniperLaser.GetAbsOrigin(),
+        angles: sniperLaser.GetAbsAngles()
+    };
+    sniperLaserAtDefault = true;
 }
 
 function IsTrackedSniper(weapon) {
@@ -109,6 +120,26 @@ function TrackSniperDrop(weapon) {
 
     sniperHolders.delete(weapon);
     Instance.Msg("items.js: tracked sniper was dropped.");
+    ResetLaserToDefault();
+}
+
+function ResetLaserToDefault() {
+    if (sniperLaserAtDefault) {
+        return;
+    }
+
+    if (!sniperLaser || !sniperLaser.IsValid()) {
+        RefreshSniperLaser();
+    }
+
+    if (!sniperLaser || !sniperLaser.IsValid() || !sniperLaserDefaultTransform) {
+        return;
+    }
+
+    sniperLaser.SetParent(undefined);
+    sniperLaser.Teleport(sniperLaserDefaultTransform);
+    sniperLaserAtDefault = true;
+    Instance.Msg("items.js: returned sniper_laser to its default map position.");
 }
 
 function UpdateLaserForHolder(weapon, pawn) {
@@ -127,6 +158,7 @@ function UpdateLaserForHolder(weapon, pawn) {
             Instance.Msg(`items.js: tracked sniper is held, active weapon is ${description}.`);
             debugActiveDescription = description;
         }
+        ResetLaserToDefault();
         return;
     }
 
@@ -143,6 +175,8 @@ function UpdateLaserForHolder(weapon, pawn) {
         position,
         angles
     });
+    sniperLaserAtDefault = false;
+    Instance.Msg(`items.js: transformed sniper_laser to eye position (${position.x}, ${position.y}, ${position.z}) and angles (${angles.pitch}, ${angles.yaw}, ${angles.roll}).`);
 }
 
 function Think() {
@@ -163,6 +197,8 @@ function Think() {
             return;
         }
     }
+
+    ResetLaserToDefault();
 }
 
 function UpdateLaserForExistingHolder() {
