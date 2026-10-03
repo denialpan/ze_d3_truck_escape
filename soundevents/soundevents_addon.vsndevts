@@ -6,10 +6,10 @@
         type = "csgo_mega"
         volume = 2
         pitch = 1.000000
+		vsnd_files_track_01 = "sounds/sui.vsnd"
 		restrict_source_reverb = true
 		disable_volume_culling = true
 		position_relative_to_player = true
-        vsnd_files_track_01 = "sounds/sui.vsnd"
         use_distance_unfiltered_stereo_mapping_curve = true
         distance_unfiltered_stereo_mapping_curve = 
         [
@@ -265,27 +265,16 @@
         type = "csgo_mega"
         volume = 4
         pitch = 1.000000
-        mixgroup = "Ambient"
         vsnd_files_track_01 = "sounds/kz_perfect.vsnd"
-        distance_volume_mapping_curve = 
+        restrict_source_reverb = true
+		disable_volume_culling = true
+		position_relative_to_player = true
+        use_distance_unfiltered_stereo_mapping_curve = true
+        distance_unfiltered_stereo_mapping_curve = 
         [
-            
             [
-                0.000000,
-                1.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
-            ],
-            
-            [
-                4096.000000,
-                0.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
+                0, 1, 0, 0,
+                0, 0,
             ],
         ]
     }
@@ -295,27 +284,16 @@
         type = "csgo_mega"
         volume = 4
         pitch = 1.000000
-        mixgroup = "Ambient"
         vsnd_files_track_01 = "sounds/kz_impressive.vsnd"
-        distance_volume_mapping_curve = 
+        restrict_source_reverb = true
+		disable_volume_culling = true
+		position_relative_to_player = true
+        use_distance_unfiltered_stereo_mapping_curve = true
+        distance_unfiltered_stereo_mapping_curve = 
         [
-            
             [
-                0.000000,
-                1.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
-            ],
-            
-            [
-                4096.000000,
-                0.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
+                0, 1, 0, 0,
+                0, 0,
             ],
         ]
     }
@@ -325,27 +303,16 @@
         type = "csgo_mega"
         volume = 4
         pitch = 1.000000
-        mixgroup = "Ambient"
         vsnd_files_track_01 = "sounds/kz_rampage.vsnd"
-        distance_volume_mapping_curve = 
+        restrict_source_reverb = true
+		disable_volume_culling = true
+		position_relative_to_player = true
+        use_distance_unfiltered_stereo_mapping_curve = true
+        distance_unfiltered_stereo_mapping_curve = 
         [
-            
             [
-                0.000000,
-                1.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
-            ],
-            
-            [
-                4096.000000,
-                0.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
+                0, 1, 0, 0,
+                0, 0,
             ],
         ]
     }
@@ -355,27 +322,16 @@
         type = "csgo_mega"
         volume = 4
         pitch = 1.000000
-        mixgroup = "Ambient"
         vsnd_files_track_01 = "sounds/kz_dominating.vsnd"
-        distance_volume_mapping_curve = 
+        restrict_source_reverb = true
+		disable_volume_culling = true
+		position_relative_to_player = true
+        use_distance_unfiltered_stereo_mapping_curve = true
+        distance_unfiltered_stereo_mapping_curve = 
         [
-            
             [
-                0.000000,
-                1.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
-            ],
-            
-            [
-                4096.000000,
-                0.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
+                0, 1, 0, 0,
+                0, 0,
             ],
         ]
     }
@@ -385,27 +341,16 @@
         type = "csgo_mega"
         volume = 4
         pitch = 1.000000
-        mixgroup = "Ambient"
         vsnd_files_track_01 = "sounds/kz_unstoppable.vsnd"
-        distance_volume_mapping_curve = 
+        restrict_source_reverb = true
+		disable_volume_culling = true
+		position_relative_to_player = true
+        use_distance_unfiltered_stereo_mapping_curve = true
+        distance_unfiltered_stereo_mapping_curve = 
         [
-            
             [
-                0.000000,
-                1.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
-            ],
-            
-            [
-                4096.000000,
-                0.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
+                0, 1, 0, 0,
+                0, 0,
             ],
         ]
     }
@@ -415,27 +360,16 @@
         type = "csgo_mega"
         volume = 4
         pitch = 1.000000
-        mixgroup = "Ambient"
         vsnd_files_track_01 = "sounds/kz_godlike.vsnd"
-        distance_volume_mapping_curve = 
+        restrict_source_reverb = true
+		disable_volume_culling = true
+		position_relative_to_player = true
+        use_distance_unfiltered_stereo_mapping_curve = true
+        distance_unfiltered_stereo_mapping_curve = 
         [
-            
             [
-                0.000000,
-                1.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
-            ],
-            
-            [
-                4096.000000,
-                0.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
+                0, 1, 0, 0,
+                0, 0,
             ],
         ]
     }
@@ -445,27 +379,16 @@
         type = "csgo_mega"
         volume = 4
         pitch = 1.000000
-        mixgroup = "Ambient"
         vsnd_files_track_01 = "sounds/kz_holy.vsnd"
-        distance_volume_mapping_curve = 
+        restrict_source_reverb = true
+		disable_volume_culling = true
+		position_relative_to_player = true
+        use_distance_unfiltered_stereo_mapping_curve = true
+        distance_unfiltered_stereo_mapping_curve = 
         [
-            
             [
-                0.000000,
-                1.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
-            ],
-            
-            [
-                4096.000000,
-                0.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
+                0, 1, 0, 0,
+                0, 0,
             ],
         ]
     }
@@ -477,28 +400,13 @@
         pitch = 1.000000
         mixgroup = "Ambient"
         vsnd_files_track_01 = "sounds/kz_success.vsnd"
-        distance_volume_mapping_curve = 
+		use_distance_unfiltered_stereo_mapping_curve = true
+		use_distance_volume_mapping_curve = true
+		distance_volume_mapping_curve = 
         [
-            
-            [
-                0.000000,
-                1.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
-            ],
-            
-            [
-                4096.000000,
-                0.000000,
-                0.000000,
-                0.000000,
-                2.000000,
-                3.000000,
-            ],
+            [ 0.0, 1.0, 0.0, 0.0, 2.0, 3.0, ],
+            [384.0, 0.0, 0.0, 0.0, 2.0, 3.0, ]
         ]
-    }
-	
+    }	
 
 }
