@@ -1,10 +1,13 @@
 import { Entity, Instance } from "cs_script/point_script";
 
 let craneLayout = null;
-const CAMERA_TRANSITION_TIME = 0.75;
+const CAMERA_ENTER_TIME = 2;
+const CAMERA_EXIT_TIME = 0.75;
+const CUSTOM_CAMERA_MODE_DISABLED = 0;
+const CUSTOM_CAMERA_MODE_CONTROLLED = 1;
 const CRANE_VIEW = {
-    position: { x: 478, y: 1237, z: 1258 },
-    angles: { pitch: 36, yaw: -60, roll: 0 }
+    position: { x: 717, y: 732, z: 1017 },
+    angles: { pitch: 38, yaw: -61, roll: 0 }
 };
 const craneCameras = new Map();
 const activeCraneUsers = new Set();
@@ -68,6 +71,14 @@ function SmoothStep(t) {
     return t * t * (3 - 2 * t);
 }
 
+function EaseOutExpo(t) {
+    if (t >= 1) {
+        return 1;
+    }
+
+    return 1 - Math.pow(2, -10 * t);
+}
+
 function InterpolateVector(a, b, t) {
     return {
         x: Lerp(a.x, b.x, t),
@@ -84,6 +95,34 @@ function InterpolateAngles(a, b, t) {
     };
 }
 
+function GetPlayerCamera(pawn) {
+    if (typeof pawn.GetCustomCamera === "function") {
+        return pawn.GetCustomCamera();
+    }
+
+    return pawn.GetCamera();
+}
+
+function EnableControlledCamera(camera) {
+    if (typeof camera.SetMode === "function") {
+        camera.SetMode(CUSTOM_CAMERA_MODE_CONTROLLED);
+        return;
+    }
+
+    camera.SetIsControllingAngles(true);
+    camera.SetEnabled(true);
+}
+
+function DisableCamera(camera) {
+    if (typeof camera.SetMode === "function") {
+        camera.SetMode(CUSTOM_CAMERA_MODE_DISABLED);
+        return;
+    }
+
+    camera.SetEnabled(false);
+    camera.SetIsControllingAngles(false);
+}
+
 function UpdateCraneCameras() {
     const now = Instance.GetGameTime();
 
@@ -94,17 +133,17 @@ function UpdateCraneCameras() {
         }
 
         const elapsed = now - state.transitionStartTime;
-        const t = SmoothStep(Math.min(elapsed / CAMERA_TRANSITION_TIME, 1));
+        const duration = state.transitionDuration;
+        const t = EaseOutExpo(Math.min(elapsed / duration, 1));
 
         state.camera.Teleport({
             position: InterpolateVector(state.fromPosition, state.toPosition, t),
             angles: InterpolateAngles(state.fromAngles, state.toAngles, t)
         });
 
-        if (elapsed >= CAMERA_TRANSITION_TIME) {
+        if (elapsed >= duration) {
             if (state.mode === "exit") {
-                state.camera.SetEnabled(false);
-                state.camera.SetIsControllingAngles(false);
+                DisableCamera(state.camera);
                 craneCameras.delete(playerSlot);
             } else {
                 state.fromPosition = state.toPosition;
@@ -128,11 +167,10 @@ function StartCraneCamera(player) {
     const playerSlot = player.GetPlayerSlot();
     const startPosition = pawn.GetEyePosition();
     const startAngles = pawn.GetEyeAngles();
-    const camera = pawn.GetCamera();
+    const camera = GetPlayerCamera(pawn);
 
     camera.Teleport({ position: startPosition, angles: startAngles });
-    camera.SetIsControllingAngles(true);
-    camera.SetEnabled(true);
+    EnableControlledCamera(camera);
 
     craneCameras.set(playerSlot, {
         camera,
@@ -143,6 +181,7 @@ function StartCraneCamera(player) {
         fromAngles: startAngles,
         toPosition: CRANE_VIEW.position,
         toAngles: CRANE_VIEW.angles,
+        transitionDuration: CAMERA_ENTER_TIME,
         transitionStartTime: Instance.GetGameTime()
     });
     Instance.SetNextThink(Instance.GetGameTime());
@@ -159,6 +198,7 @@ function ExitCraneCamera(playerSlot) {
     state.fromAngles = state.camera.GetAbsAngles();
     state.toPosition = state.startPosition;
     state.toAngles = state.startAngles;
+    state.transitionDuration = CAMERA_EXIT_TIME;
     state.transitionStartTime = Instance.GetGameTime();
     Instance.SetNextThink(Instance.GetGameTime());
 }
