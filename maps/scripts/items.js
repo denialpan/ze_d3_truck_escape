@@ -155,7 +155,6 @@ function UpdateLaserForHolder(weapon, pawn) {
     if (!IsTrackedSniper(activeWeapon)) {
         const description = DescribeWeapon(activeWeapon);
         if (debugActiveDescription !== description) {
-            Instance.Msg(`items.js: tracked sniper is held, active weapon is ${description}.`);
             debugActiveDescription = description;
         }
         ResetLaserToDefault();
@@ -176,7 +175,6 @@ function UpdateLaserForHolder(weapon, pawn) {
         angles
     });
     sniperLaserAtDefault = false;
-    Instance.Msg(`items.js: transformed sniper_laser to eye position (${position.x}, ${position.y}, ${position.z}) and angles (${angles.pitch}, ${angles.yaw}, ${angles.roll}).`);
 }
 
 function Think() {
