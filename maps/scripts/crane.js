@@ -13,14 +13,25 @@ const CRANE_PULLEY_NAME = "crane_pulley";
 const CRANE_HOOK_TRIGGER_NAME = "crane_pulley_hook";
 const CARGO_CONTAINER_NAME = "cargo_container_1";
 const CARGO_HOOK_NAME = "cargo_container_1_hook";
-const CARGO_HOOK_DISTANCE = 64;
+const CARGO_HOOK_DISTANCE = 32;
 const HOOK_DEBUG_INTERVAL = 0.5;
+const CRANE_COLLISION_STATIC_NAME = "crane_collision_static_1";
+const CRANE_COLLISION_ARM_NAME = "crane_collision_arm_1";
+const CRANE_COLLISION_CARGO_NAME = CARGO_CONTAINER_NAME;
+const CRANE_COLLISION_WIRES_NAME = "crane_wires";
+const COLLISION_BACKOFF_TIME = 0.15;
 const craneCameras = new Map();
 const activeCraneUsers = new Set();
 const missingEntityReports = new Set();
 let hookedCargo = null;
 let nextHookDebugTime = 0;
 let hookRangePrinted = false;
+let collisionBackoffUntil = 0;
+const currentMotion = {
+    headSpeed: 0,
+    trolley: null,
+    pulley: null
+};
 
 function GetCraneLayout() {
     if (!(craneLayout instanceof Entity) || !craneLayout.IsValid()) {
@@ -75,10 +86,6 @@ function LerpAngle(a, b, t) {
     }
 
     return a + delta * t;
-}
-
-function SmoothStep(t) {
-    return t * t * (3 - 2 * t);
 }
 
 function EaseOutExpo(t) {
@@ -274,6 +281,7 @@ function HideCraneControls(playerSlot) {
 
 function SetCraneHeadSpeed(speed) {
     Instance.EntFireAtName({ name: "crane_head", input: "SetSpeed", value: speed });
+    currentMotion.headSpeed = speed;
 }
 
 function MoveCraneEntity(entityName, inputName) {
@@ -287,21 +295,130 @@ function SetCraneEntitySpeed(entityName, speed) {
 function OpenCraneEntity(entityName) {
     SetCraneEntitySpeed(entityName, 100);
     MoveCraneEntity(entityName, "Open");
+    SetCraneMotionDirection(entityName, "open");
 }
 
 function CloseCraneEntity(entityName) {
     SetCraneEntitySpeed(entityName, 100);
     MoveCraneEntity(entityName, "Close");
+    SetCraneMotionDirection(entityName, "close");
 }
 
 function StopCraneEntity(entityName) {
     SetCraneEntitySpeed(entityName, 0);
+    SetCraneMotionDirection(entityName, null);
 }
 
 function StopAllCraneMotion() {
     SetCraneHeadSpeed(0);
     StopCraneEntity("crane_trolley");
     StopCraneEntity("crane_pulley");
+}
+
+function SetCraneMotionDirection(entityName, direction) {
+    if (entityName === "crane_trolley") {
+        currentMotion.trolley = direction;
+    } else if (entityName === "crane_pulley") {
+        currentMotion.pulley = direction;
+    }
+}
+
+function ReverseCraneEntityBriefly(entityName, direction) {
+    if (!direction) {
+        return;
+    }
+
+    const reverseInput = direction === "open" ? "Close" : "Open";
+    Instance.EntFireAtName({ name: entityName, input: "SetSpeed", value: 100 });
+    Instance.EntFireAtName({ name: entityName, input: reverseInput });
+    Instance.EntFireAtName({ name: entityName, input: "SetSpeed", value: 0, delay: COLLISION_BACKOFF_TIME });
+}
+
+function BackOffAndStopCraneMotion() {
+    const headSpeed = currentMotion.headSpeed;
+    const trolleyDirection = currentMotion.trolley;
+    const pulleyDirection = currentMotion.pulley;
+
+    if (headSpeed === 0 && !trolleyDirection && !pulleyDirection) {
+        StopAllCraneMotion();
+        return;
+    }
+
+    if (headSpeed !== 0) {
+        Instance.EntFireAtName({ name: "crane_head", input: "SetSpeed", value: -headSpeed });
+        Instance.EntFireAtName({ name: "crane_head", input: "SetSpeed", value: 0, delay: COLLISION_BACKOFF_TIME });
+    }
+
+    ReverseCraneEntityBriefly("crane_trolley", trolleyDirection);
+    ReverseCraneEntityBriefly("crane_pulley", pulleyDirection);
+
+    currentMotion.headSpeed = 0;
+    currentMotion.trolley = null;
+    currentMotion.pulley = null;
+    collisionBackoffUntil = Instance.GetGameTime() + COLLISION_BACKOFF_TIME;
+    Instance.Msg("crane.js: collision backoff applied, reversing active crane motion briefly before stop.");
+}
+
+function GetEntityName(entity) {
+    if (!entity || !entity.IsValid() || typeof entity.GetEntityName !== "function") {
+        return "";
+    }
+
+    return entity.GetEntityName();
+}
+
+function GetEntityClassName(entity) {
+    if (!entity || !entity.IsValid() || typeof entity.GetClassName !== "function") {
+        return "";
+    }
+
+    return entity.GetClassName();
+}
+
+function IsStaticCollisionEntityName(name) {
+    return name === CRANE_COLLISION_STATIC_NAME;
+}
+
+function IsMovingCollisionEntityName(name) {
+    return name === CRANE_COLLISION_ARM_NAME
+        || name === CRANE_COLLISION_CARGO_NAME
+        || name === CRANE_COLLISION_WIRES_NAME;
+}
+
+function HandleCraneCollision(caller, activator) {
+    if (Instance.GetGameTime() < collisionBackoffUntil) {
+        return;
+    }
+
+    const callerName = GetEntityName(caller);
+    const activatorName = GetEntityName(activator);
+    const callerClass = GetEntityClassName(caller);
+    const activatorClass = GetEntityClassName(activator);
+    const hitStatic = IsStaticCollisionEntityName(callerName) || IsStaticCollisionEntityName(activatorName);
+    const hitMover = IsMovingCollisionEntityName(callerName) || IsMovingCollisionEntityName(activatorName);
+
+    Instance.Msg(`crane.js: CraneCollision caller=${callerClass || "none"}:${callerName || "none"} activator=${activatorClass || "none"}:${activatorName || "none"}.`);
+
+    if (!hitStatic || !hitMover) {
+        Instance.Msg("crane.js: collision ignored because it is not mover vs static.");
+        return;
+    }
+
+    if (callerName === CRANE_COLLISION_ARM_NAME || activatorName === CRANE_COLLISION_ARM_NAME) {
+        Instance.Msg("crane.js: static collision detected with crane_collision_arm_1.");
+        Instance.Msg("crane.js: crane_collision_arm_1 is inside crane_collision_static_1 via trigger touch.");
+    }
+
+    if (callerName === CRANE_COLLISION_CARGO_NAME || activatorName === CRANE_COLLISION_CARGO_NAME) {
+        Instance.Msg("crane.js: static collision detected with cargo_container_1.");
+    }
+
+    if (callerName === CRANE_COLLISION_WIRES_NAME || activatorName === CRANE_COLLISION_WIRES_NAME) {
+        Instance.Msg("crane.js: static collision detected with crane wires, stopping crane.");
+    }
+
+    BackOffAndStopCraneMotion();
+    Instance.Msg("crane.js: mover touched static collision volume, backed off and stopped crane motion.");
 }
 
 function GetCargoHookDistance() {
@@ -397,6 +514,10 @@ Instance.OnScriptInput("ShowCrane", ({ activator, caller }) => {
 
 Instance.OnScriptInput("CraneHookTouch", () => {
     TryHookCargoContainer("RunScriptInput CraneHookTouch");
+});
+
+Instance.OnScriptInput("CraneCollision", ({ activator, caller }) => {
+    HandleCraneCollision(caller, activator);
 });
 
 Instance.OnCustomHudClicked((event) => {
