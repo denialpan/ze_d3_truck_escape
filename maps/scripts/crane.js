@@ -11,14 +11,16 @@ const CRANE_VIEW = {
 };
 const CRANE_PULLEY_NAME = "crane_pulley";
 const CRANE_HOOK_TRIGGER_NAME = "crane_pulley_hook";
-const CARGO_CONTAINER_NAME = "cargo_container_1";
-const CARGO_HOOK_NAME = "cargo_container_1_hook";
+const AVAILABLE_CARGO_HOOKS = [
+    "cargo_container_1_hook"
+];
 const CARGO_HOOK_DISTANCE = 32;
 const HOOK_DEBUG_INTERVAL = 0.5;
-const CRANE_COLLISION_STATIC_NAME = "crane_collision_static_1";
-const CRANE_COLLISION_ARM_NAME = "crane_collision_arm_1";
-const CRANE_COLLISION_CARGO_NAME = CARGO_CONTAINER_NAME;
-const CRANE_COLLISION_WIRES_NAME = "crane_wires";
+const CRANE_COLLISION_MOVERS = [
+    "crane_collision_arm_1",
+    "cargo_container_1",
+    "crane_wires"
+];
 const COLLISION_BACKOFF_TIME = 0.15;
 const craneCameras = new Map();
 const activeCraneUsers = new Set();
@@ -376,13 +378,23 @@ function GetEntityClassName(entity) {
 }
 
 function IsStaticCollisionEntityName(name) {
-    return name === CRANE_COLLISION_STATIC_NAME;
+    return name === "crane_collision_static_1";
 }
 
 function IsMovingCollisionEntityName(name) {
-    return name === CRANE_COLLISION_ARM_NAME
-        || name === CRANE_COLLISION_CARGO_NAME
-        || name === CRANE_COLLISION_WIRES_NAME;
+    return CRANE_COLLISION_MOVERS.indexOf(name) !== -1;
+}
+
+function GetMovingCollisionName(callerName, activatorName) {
+    if (IsMovingCollisionEntityName(callerName)) {
+        return callerName;
+    }
+
+    if (IsMovingCollisionEntityName(activatorName)) {
+        return activatorName;
+    }
+
+    return "";
 }
 
 function HandleCraneCollision(caller, activator) {
@@ -404,31 +416,42 @@ function HandleCraneCollision(caller, activator) {
         return;
     }
 
-    if (callerName === CRANE_COLLISION_ARM_NAME || activatorName === CRANE_COLLISION_ARM_NAME) {
-        Instance.Msg("crane.js: static collision detected with crane_collision_arm_1.");
-        Instance.Msg("crane.js: crane_collision_arm_1 is inside crane_collision_static_1 via trigger touch.");
-    }
-
-    if (callerName === CRANE_COLLISION_CARGO_NAME || activatorName === CRANE_COLLISION_CARGO_NAME) {
-        Instance.Msg("crane.js: static collision detected with cargo_container_1.");
-    }
-
-    if (callerName === CRANE_COLLISION_WIRES_NAME || activatorName === CRANE_COLLISION_WIRES_NAME) {
-        Instance.Msg("crane.js: static collision detected with crane wires, stopping crane.");
-    }
+    const moverName = GetMovingCollisionName(callerName, activatorName);
+    Instance.Msg(`crane.js: static collision detected with ${moverName}, stopping crane.`);
 
     BackOffAndStopCraneMotion();
     Instance.Msg("crane.js: mover touched static collision volume, backed off and stopped crane motion.");
 }
 
-function GetCargoHookDistance() {
+function GetClosestCargoHook() {
     const hookTrigger = GetNamedEntity(CRANE_HOOK_TRIGGER_NAME);
-    const cargoHook = GetNamedEntity(CARGO_HOOK_NAME);
-    if (!hookTrigger || !cargoHook) {
+    if (!hookTrigger) {
         return undefined;
     }
 
-    return Distance(hookTrigger.GetAbsOrigin(), cargoHook.GetAbsOrigin());
+    let closestCargoHook = undefined;
+
+    for (const cargoHookName of AVAILABLE_CARGO_HOOKS) {
+        const cargoName = cargoHookName.replace(/_hook$/, "");
+        const cargo = GetNamedEntity(cargoName);
+        const cargoHook = GetNamedEntity(cargoHookName);
+        if (!cargo || !cargoHook) {
+            continue;
+        }
+
+        const distance = Distance(hookTrigger.GetAbsOrigin(), cargoHook.GetAbsOrigin());
+        if (!closestCargoHook || distance < closestCargoHook.distance) {
+            closestCargoHook = {
+                cargo,
+                cargoName,
+                hook: cargoHook,
+                hookName: cargoHookName,
+                distance
+            };
+        }
+    }
+
+    return closestCargoHook;
 }
 
 function DebugCargoHookDistance(now) {
@@ -438,16 +461,16 @@ function DebugCargoHookDistance(now) {
 
     nextHookDebugTime = now + HOOK_DEBUG_INTERVAL;
 
-    const distance = GetCargoHookDistance();
-    if (distance === undefined) {
+    const cargoHook = GetClosestCargoHook();
+    if (!cargoHook) {
         return;
     }
 
-    Instance.Msg(`crane.js: crane_pulley_hook is ${distance.toFixed(2)} units from cargo_container_1_hook.`);
+    Instance.Msg(`crane.js: crane_pulley_hook is ${cargoHook.distance.toFixed(2)} units from ${cargoHook.hookName}.`);
 
-    if (distance <= CARGO_HOOK_DISTANCE) {
+    if (cargoHook.distance <= CARGO_HOOK_DISTANCE) {
         if (!hookRangePrinted) {
-            Instance.Msg("crane.js: cargo hook is within hook range.");
+            Instance.Msg(`crane.js: ${cargoHook.hookName} is within hook range.`);
             hookRangePrinted = true;
         }
         TryHookCargoContainer("polling");
@@ -465,27 +488,24 @@ function TryHookCargoContainer(source) {
     Instance.Msg(`crane.js: processing cargo hook attempt from ${source}.`);
 
     const pulley = GetNamedEntity(CRANE_PULLEY_NAME);
-    const hookTrigger = GetNamedEntity(CRANE_HOOK_TRIGGER_NAME);
-    const cargo = GetNamedEntity(CARGO_CONTAINER_NAME);
-    const cargoHook = GetNamedEntity(CARGO_HOOK_NAME);
-    if (!pulley || !hookTrigger || !cargo || !cargoHook) {
+    const cargoHook = GetClosestCargoHook();
+    if (!pulley || !cargoHook) {
         Instance.Msg("crane.js: hook attempt failed because a required entity is missing.");
         return;
     }
 
-    const distance = Distance(hookTrigger.GetAbsOrigin(), cargoHook.GetAbsOrigin());
-    if (distance > CARGO_HOOK_DISTANCE) {
-        Instance.Msg(`crane.js: cargo hook is ${distance.toFixed(2)} units away, not hooking.`);
+    if (cargoHook.distance > CARGO_HOOK_DISTANCE) {
+        Instance.Msg(`crane.js: ${cargoHook.hookName} is ${cargoHook.distance.toFixed(2)} units away, not hooking.`);
         return;
     }
 
-    cargo.SetParent(pulley);
-    hookedCargo = cargo;
+    cargoHook.cargo.SetParent(pulley);
+    hookedCargo = cargoHook.cargo;
 
-    if (cargo.GetParent() === pulley) {
-        Instance.Msg("crane.js: cargo_container_1 successfully parented to crane_pulley.");
+    if (cargoHook.cargo.GetParent() === pulley) {
+        Instance.Msg(`crane.js: ${cargoHook.cargoName} successfully parented to crane_pulley.`);
     } else {
-        Instance.Msg("crane.js: SetParent was called, but cargo_container_1 parent did not verify as crane_pulley.");
+        Instance.Msg(`crane.js: SetParent was called, but ${cargoHook.cargoName} parent did not verify as crane_pulley.`);
     }
 }
 
