@@ -1,16 +1,26 @@
 import { Entity, Instance } from "cs_script/point_script";
 
 let craneLayout = null;
-const CAMERA_ENTER_TIME = 2;
-const CAMERA_EXIT_TIME = 0.75;
+const CAMERA_ENTER_TIME = 1.5;
+const CAMERA_EXIT_TIME = 1.0;
 const CUSTOM_CAMERA_MODE_DISABLED = 0;
 const CUSTOM_CAMERA_MODE_CONTROLLED = 1;
 const CRANE_VIEW = {
     position: { x: 717, y: 732, z: 1017 },
     angles: { pitch: 38, yaw: -61, roll: 0 }
 };
+const CRANE_PULLEY_NAME = "crane_pulley";
+const CRANE_HOOK_TRIGGER_NAME = "crane_pulley_hook";
+const CARGO_CONTAINER_NAME = "cargo_container_1";
+const CARGO_HOOK_NAME = "cargo_container_1_hook";
+const CARGO_HOOK_DISTANCE = 64;
+const HOOK_DEBUG_INTERVAL = 0.5;
 const craneCameras = new Map();
 const activeCraneUsers = new Set();
+const missingEntityReports = new Set();
+let hookedCargo = null;
+let nextHookDebugTime = 0;
+let hookRangePrinted = false;
 
 function GetCraneLayout() {
     if (!(craneLayout instanceof Entity) || !craneLayout.IsValid()) {
@@ -93,6 +103,33 @@ function InterpolateAngles(a, b, t) {
         yaw: LerpAngle(a.yaw, b.yaw, t),
         roll: LerpAngle(a.roll, b.roll, t)
     };
+}
+
+function ReportMissingEntity(name) {
+    if (missingEntityReports.has(name)) {
+        return;
+    }
+
+    missingEntityReports.add(name);
+    Instance.Msg(`crane.js: missing entity named ${name}`);
+}
+
+function GetNamedEntity(name) {
+    const entity = Instance.FindEntityByName(name);
+    if (!entity || !entity.IsValid()) {
+        ReportMissingEntity(name);
+        return undefined;
+    }
+
+    return entity;
+}
+
+function Distance(a, b) {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    const dz = a.z - b.z;
+
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
 function GetPlayerCamera(pawn) {
@@ -267,6 +304,87 @@ function StopAllCraneMotion() {
     StopCraneEntity("crane_pulley");
 }
 
+function GetCargoHookDistance() {
+    const hookTrigger = GetNamedEntity(CRANE_HOOK_TRIGGER_NAME);
+    const cargoHook = GetNamedEntity(CARGO_HOOK_NAME);
+    if (!hookTrigger || !cargoHook) {
+        return undefined;
+    }
+
+    return Distance(hookTrigger.GetAbsOrigin(), cargoHook.GetAbsOrigin());
+}
+
+function DebugCargoHookDistance(now) {
+    if (now < nextHookDebugTime) {
+        return;
+    }
+
+    nextHookDebugTime = now + HOOK_DEBUG_INTERVAL;
+
+    const distance = GetCargoHookDistance();
+    if (distance === undefined) {
+        return;
+    }
+
+    Instance.Msg(`crane.js: crane_pulley_hook is ${distance.toFixed(2)} units from cargo_container_1_hook.`);
+
+    if (distance <= CARGO_HOOK_DISTANCE) {
+        if (!hookRangePrinted) {
+            Instance.Msg("crane.js: cargo hook is within hook range.");
+            hookRangePrinted = true;
+        }
+        TryHookCargoContainer("polling");
+    } else {
+        hookRangePrinted = false;
+    }
+}
+
+function TryHookCargoContainer(source) {
+    if (hookedCargo && hookedCargo.IsValid()) {
+        Instance.Msg(`crane.js: hook attempt from ${source}, cargo is already hooked.`);
+        return;
+    }
+
+    Instance.Msg(`crane.js: processing cargo hook attempt from ${source}.`);
+
+    const pulley = GetNamedEntity(CRANE_PULLEY_NAME);
+    const hookTrigger = GetNamedEntity(CRANE_HOOK_TRIGGER_NAME);
+    const cargo = GetNamedEntity(CARGO_CONTAINER_NAME);
+    const cargoHook = GetNamedEntity(CARGO_HOOK_NAME);
+    if (!pulley || !hookTrigger || !cargo || !cargoHook) {
+        Instance.Msg("crane.js: hook attempt failed because a required entity is missing.");
+        return;
+    }
+
+    const distance = Distance(hookTrigger.GetAbsOrigin(), cargoHook.GetAbsOrigin());
+    if (distance > CARGO_HOOK_DISTANCE) {
+        Instance.Msg(`crane.js: cargo hook is ${distance.toFixed(2)} units away, not hooking.`);
+        return;
+    }
+
+    cargo.SetParent(pulley);
+    hookedCargo = cargo;
+
+    if (cargo.GetParent() === pulley) {
+        Instance.Msg("crane.js: cargo_container_1 successfully parented to crane_pulley.");
+    } else {
+        Instance.Msg("crane.js: SetParent was called, but cargo_container_1 parent did not verify as crane_pulley.");
+    }
+}
+
+function UpdateCrane() {
+    const now = Instance.GetGameTime();
+
+    UpdateCraneCameras();
+    DebugCargoHookDistance(now);
+
+    if (craneCameras.size > 0) {
+        Instance.SetNextThink(Instance.GetGameTime());
+    } else {
+        Instance.SetNextThink(now + HOOK_DEBUG_INTERVAL);
+    }
+}
+
 Instance.OnScriptInput("ShowCrane", ({ activator, caller }) => {
     const player = GetPlayerController(activator) || GetPlayerController(caller);
     if (!player) {
@@ -275,6 +393,10 @@ Instance.OnScriptInput("ShowCrane", ({ activator, caller }) => {
     }
 
     ShowCraneControls(player);
+});
+
+Instance.OnScriptInput("CraneHookTouch", () => {
+    TryHookCargoContainer("RunScriptInput CraneHookTouch");
 });
 
 Instance.OnCustomHudClicked((event) => {
@@ -310,7 +432,8 @@ Instance.OnCustomHudClicked((event) => {
     }
 });
 
-Instance.SetThink(UpdateCraneCameras);
+Instance.SetThink(UpdateCrane);
+Instance.SetNextThink(Instance.GetGameTime() + HOOK_DEBUG_INTERVAL);
 
 Instance.OnPlayerDisconnect((event) => {
     craneCameras.delete(event.playerSlot);
