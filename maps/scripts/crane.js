@@ -466,8 +466,6 @@ function DebugCargoHookDistance(now) {
         return;
     }
 
-    Instance.Msg(`crane.js: crane_pulley_hook is ${cargoHook.distance.toFixed(2)} units from ${cargoHook.hookName}.`);
-
     if (cargoHook.distance <= CARGO_HOOK_DISTANCE) {
         if (!hookRangePrinted) {
             Instance.Msg(`crane.js: ${cargoHook.hookName} is within hook range.`);
