@@ -1,0 +1,14 @@
+<root>
+    <styles>
+        <include src="file://{resources}/styles/custom_game/note.css" />
+    </styles>
+
+    <Panel class="Root">
+        <Panel id="note" class="Dismissed">
+            <Image id="note_background" src="file://{images}/clipboard.png" />
+            <Panel id="note_content">
+                <Label id="note_body" class="Body" text="{s:body}" />
+            </Panel>
+        </Panel>
+    </Panel>
+</root>
