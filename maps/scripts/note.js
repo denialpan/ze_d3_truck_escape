@@ -6,7 +6,7 @@ const NOTE_INPUT_NAME = "ShowNote";
 const NOTE_CLOSE_DELAY = 0.2;
 
 const NOTES = {
-    note_01: "This is the first readable note.",
+    note_01: "this text has no purpose besides just a test of newline formatting\\n\\nlorem ipsum dolor sit amet consectetur adipiscing elit pariatur quas nihil quis facilis minus qui excepturi dolores ut autem voluptate dolorem officia esse sint nobis sunt dignissimos est at autem in ut fugiat quo dolor sint et quo ut distinctio laboris molestias similique sunt dolor labore culpa ut adipiscing ut pariatur omnis dolores ea dolore aliquip quidem quidem labore sunt id ullamco assumenda amet ad occaecat maxime dolor eligendi lorem",
     note_02: "This is the second readable note."
 };
 
@@ -83,7 +83,7 @@ function ShowNote(player, noteName) {
     }
 
     const playerSlot = player.GetPlayerSlot();
-    layout.SetDialogVariableStringForPlayer(playerSlot, NOTE_PANEL_ID, "body", text);
+    layout.SetDialogVariableStringForPlayer(playerSlot, NOTE_PANEL_ID, "body", FormatNoteText(text));
     layout.SetHasClassForPlayer(playerSlot, NOTE_PANEL_ID, "Dismissed", false);
     layout.SetInputCaptureEnabled(playerSlot, true);
     openNotes.set(playerSlot, {
@@ -91,6 +91,10 @@ function ShowNote(player, noteName) {
         openedAt: Instance.GetGameTime()
     });
     Instance.SetNextThink(Instance.GetGameTime());
+}
+
+function FormatNoteText(text) {
+    return text.replace(/\\n/g, "\n");
 }
 
 function HideNote(playerSlot) {
