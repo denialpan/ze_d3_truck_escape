@@ -4,9 +4,10 @@ const NOTE_LAYOUT_NAME = "hud_note";
 const NOTE_PANEL_ID = "note";
 const NOTE_INPUT_NAME = "ShowNote";
 const NOTE_CLOSE_DELAY = 0.2;
+const NOTE_CLOSE_RADIUS = 64;
 
 const NOTES = {
-    note_01: "this text has no purpose besides just a test of newline formatting\\n\\nlorem ipsum dolor sit amet consectetur adipiscing elit pariatur quas nihil quis facilis minus qui excepturi dolores ut autem voluptate dolorem officia esse sint nobis sunt dignissimos est at autem in ut fugiat quo dolor sint et quo ut distinctio laboris molestias similique sunt dolor labore culpa ut adipiscing ut pariatur omnis dolores ea dolore aliquip quidem quidem labore sunt id ullamco assumenda amet ad occaecat maxime dolor eligendi lorem",
+    note_01: "This is the first readable note.\\nThis line starts below it.",
     note_02: "This is the second readable note."
 };
 
@@ -69,7 +70,23 @@ function GetPlayerPawn(player) {
     return pawn;
 }
 
-function ShowNote(player, noteName) {
+function Distance(a, b) {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    const dz = a.z - b.z;
+
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+function GetNoteOrigin(noteEntity) {
+    if (!noteEntity || !noteEntity.IsValid() || typeof noteEntity.GetAbsOrigin !== "function") {
+        return undefined;
+    }
+
+    return noteEntity.GetAbsOrigin();
+}
+
+function ShowNote(player, noteName, noteEntity) {
     const layout = GetNoteLayout();
     if (!layout) {
         Instance.Msg("note.js: missing custom_hud_layout named hud_note");
@@ -88,6 +105,7 @@ function ShowNote(player, noteName) {
     layout.SetInputCaptureEnabled(playerSlot, true);
     openNotes.set(playerSlot, {
         player,
+        noteOrigin: GetNoteOrigin(noteEntity),
         openedAt: Instance.GetGameTime()
     });
     Instance.SetNextThink(Instance.GetGameTime());
@@ -118,6 +136,11 @@ function UpdateOpenNotes() {
             continue;
         }
 
+        if (state.noteOrigin && Distance(pawn.GetAbsOrigin(), state.noteOrigin) > NOTE_CLOSE_RADIUS) {
+            HideNote(playerSlot);
+            continue;
+        }
+
         if (now - state.openedAt >= NOTE_CLOSE_DELAY && pawn.WasInputJustPressed(CSInputs.USE)) {
             HideNote(playerSlot);
         }
@@ -135,7 +158,7 @@ Instance.OnScriptInput(NOTE_INPUT_NAME, ({ activator, caller }) => {
         return;
     }
 
-    ShowNote(player, GetNoteName(caller, activator));
+    ShowNote(player, GetNoteName(caller, activator), caller);
 });
 
 Instance.SetThink(UpdateOpenNotes);
