@@ -7,8 +7,8 @@ const NOTE_CLOSE_DELAY = 0.2;
 const NOTE_CLOSE_RADIUS = 64;
 
 const NOTES = {
-    note_01: "This is the first readable note.\\nThis line starts below it.",
-    note_02: "This is the second readable note."
+    note_1: "This is the first readable note.\\nThis line starts below it.",
+    note_2: "This is the second readable note."
 };
 
 let noteLayout = null;
