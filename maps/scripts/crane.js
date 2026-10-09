@@ -17,9 +17,8 @@ const AVAILABLE_CARGO_HOOKS = [
 const CARGO_HOOK_DISTANCE = 32;
 const HOOK_DEBUG_INTERVAL = 0.5;
 const CRANE_COLLISION_MOVERS = [
-    "crane_collision_arm_1",
     "cargo_container_1",
-    "crane_wires"
+    "crane_pulley_model"
 ];
 const COLLISION_BACKOFF_TIME = 0.15;
 const craneCameras = new Map();
@@ -378,7 +377,7 @@ function GetEntityClassName(entity) {
 }
 
 function IsStaticCollisionEntityName(name) {
-    return name === "crane_collision_static_1";
+    return name === "crane_collision_static";
 }
 
 function IsMovingCollisionEntityName(name) {
